@@ -1160,7 +1160,7 @@ window.MBINK={
 /* ===== M. AI STUDY ASSISTANT: streaming chat, local multi-chat history, question-bank retrieval. Additive module; reads (never writes) the question data. ===== */
 (()=>{
 'use strict';
-const EP=window.MB_AI_ENDPOINT||'/api/chat', mobile=()=>matchMedia('(max-width:900px)').matches;
+const EP=window.MB_AI_ENDPOINT||'api/chat', mobile=()=>matchMedia('(max-width:900px)').matches;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const ls=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){return null}};
 const MODES=[['normal','Normal'],['exam','Exam Answer'],['viva','Viva'],['concept','Concept'],['short','Very Short'],['detailed','Detailed'],['mnemonic','Mnemonic'],['mcq','MCQ']];
@@ -1256,7 +1256,7 @@ function msgEl(m,i){const last=i===cur.msgs.length-1,d=document.createElement('d
   if(m.role==='user'){const q=m.qid&&BY[m.qid];d.innerHTML=`${q?`<span class="ai-ctx">Q${q.n}</span>`:''}<div class="ai-b">${esc(m.content)}</div>${AI.busy?'':`<div class="ai-ctl">${ico('edit','aiEdit','Edit')}${ico('copy','aiCopy','Copy')}</div>`}`;return d}
   const live=AI.busy&&last;d.innerHTML=`<div class="ai-b md${live&&m.content?' ai-cur':''}">${m.content?renderMd(m.content,live?null:m):(live?'<span class="ai-dots"><i></i><i></i><i></i></span><span class="ai-think">Thinking\u2026</span>':'')}</div>`;
   if(live){AI.live=d.firstChild;return d}
-  if(m.err){const msg={offline:'You appear to be offline.',network:'Could not reach the AI service.',unavailable:"The AI service isn't available here yet.",rate_limit:'The AI service is busy or its quota is used up.',stopped:'Generation stopped before a reply arrived.'}[m.err]||m.msg||'';d.insertAdjacentHTML('beforeend',`<div class="ai-err"><span>${m.err==='stopped'?'Stopped.':'Something went wrong. Please try again.'}</span><button data-a="retry">Retry</button>${msg?`<small>${esc(msg)}</small>`:''}</div>`)}
+  if(m.err){const msg={offline:'You appear to be offline.',network:'Could not reach the AI service.',unavailable:'AI tutor is unavailable right now.',rate_limit:'The AI service is busy or its quota is used up.',stopped:'Generation stopped before a reply arrived.'}[m.err]||m.msg||'';d.insertAdjacentHTML('beforeend',`<div class="ai-err"><span>${m.err==='stopped'?'Stopped.':m.err==='unavailable'?'AI tutor is unavailable right now.':'Something went wrong. Please try again.'}</span>${m.err==='unavailable'?'':'<button data-a="retry">Retry</button>'}${msg&&m.err!=='unavailable'?`<small>${esc(msg)}</small>`:''}</div>`)}
   else if(m.cut)d.insertAdjacentHTML('beforeend',`<div class="ai-note"><span>${{stopped:'Stopped.',max_tokens:'Reply reached the length limit.',interrupted:'The connection was interrupted.'}[m.cut]||'Cut off.'}</span><button data-a="cont">Continue</button></div>`);
   if(m.content)d.insertAdjacentHTML('beforeend',`<div class="ai-ctl">${ico('copy','aiCopy','Copy')}${last?ico('regen','aiRedo','Regenerate'):''}</div>`);return d}
 function renderAll(keep){const c=cur;$t.textContent=c.title;$b.innerHTML='';AI.live=null;if(!c.msgs.length)$b.append(welcome());else c.msgs.forEach((m,i)=>$b.append(msgEl(m,i)));chip();modes();quick();syncSend();if(!keep)toEnd(true)}
@@ -1266,8 +1266,15 @@ $b.addEventListener('scroll',()=>{AI.stick=atEnd();$d.classList.toggle('on',!AI.
 
 /* ---------- network ---------- */
 async function api(body,signal){const h={'content-type':'application/json'};let k=ls('mbai-code');if(k)h['x-access-code']=k;
-  let r=await fetch(EP,{method:'POST',headers:h,body:JSON.stringify(body),signal});
-  if(r.status===401){const c=prompt('Enter the access code for the AI assistant:');if(c){ls('mbai-code',c.trim());h['x-access-code']=c.trim();r=await fetch(EP,{method:'POST',headers:h,body:JSON.stringify(body),signal})}}return r}
+  const go=async()=>{ // abort if the server sends no response headers within 40s (dead/absent backend must not spin forever)
+    const k2=new AbortController(),onA=()=>k2.abort();let to=0,timed=false;
+    if(signal){if(signal.aborted)k2.abort();else signal.addEventListener('abort',onA,{once:true})}
+    to=setTimeout(()=>{timed=true;k2.abort()},40000);
+    try{return await fetch(EP,{method:'POST',headers:h,body:JSON.stringify(body),signal:k2.signal})}
+    catch(e){if(timed)throw Object.assign(new Error('timeout'),{code:'network'});throw e}
+    finally{clearTimeout(to);if(signal)signal.removeEventListener('abort',onA)}};
+  let r=await go();
+  if(r.status===401){const c=prompt('Enter the access code for the AI assistant:');if(c){ls('mbai-code',c.trim());h['x-access-code']=c.trim();r=await go()}}return r}
 async function compact(c,end,signal){ // fold old turns into a rolling summary so long chats never hit a visible limit
   const tot=c.msgs.slice(c.sumN,end).reduce((a,m)=>a+m.content.length,0);if(tot<70000)return;
   let k=end,keep=0;while(k>c.sumN&&keep<30000){k--;keep+=c.msgs[k].content.length}while(k<end&&c.msgs[k].role!=='user')k++;if(k<=c.sumN)return;
@@ -1286,7 +1293,10 @@ async function generate(c,opt={}){ // fills the last (assistant) message of chat
     if(cont){hist.push({role:'assistant',content:base},{role:'user',content:'Continue exactly from where you stopped. Do not repeat anything already written.'})}
     while(hist.reduce((a,x)=>a+x.content.length,0)>500000&&hist.length>3)hist.splice(0,2);
     const r=await api({messages:hist,mode:c.mode,context:ctxFor(c,ui)},sig);
-    if(!r.ok){let j={};try{j=await r.json()}catch(e){}throw Object.assign(new Error(j.message||'http'),{code:r.status===404?'unavailable':(j.error||'http'),msg:j.message})}
+    const ct=(r.headers.get('content-type')||'').toLowerCase();
+    // Static hosts (GitHub Pages) answer 404/405/501 or an HTML page instead of the Netlify function -> backend absent
+    if([404,405,410,501].includes(r.status)||(r.ok&&ct.includes('text/html')))throw Object.assign(new Error('unavailable'),{code:'unavailable'});
+    if(!r.ok){let j={};try{j=await r.json()}catch(e){}throw Object.assign(new Error(j.message||'http'),{code:j.error||'http',msg:j.message})}
     const rd=r.body.getReader(),dec=new TextDecoder();let buf='',raf=0,lt=0;
     const paint=()=>{raf=0;const n=performance.now();if(n-lt<Math.min(250,Math.max(40,40+m.content.length/40))){raf=requestAnimationFrame(paint);return} /* adaptive: re-parsing the whole reply every 40ms is O(n^2) on long answers */lt=n;if(cur===c&&AI.live){AI.live.classList.add('ai-cur');AI.live.innerHTML=renderMd(m.content);toEnd()}};
     for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
@@ -1380,7 +1390,13 @@ window.MBAI={open:openAI,close:closeAI,
 </script>
 <script>
 /* PWA: register the service worker (static assets cached for offline; /api/* always goes to the network) */
-if('serviceWorker' in navigator&&location.protocol!=='file:'){addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
+if('serviceWorker' in navigator&&location.protocol!=='file:'){addEventListener('load',()=>{
+  const had=!!navigator.serviceWorker.controller;let shown=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!shown){shown=true;try{toast('Updated to the latest version — reload to use it.')}catch(e){}}});
+  navigator.serviceWorker.register('sw.js',{scope:'./',updateViaCache:'none'}).then(reg=>{
+    const chk=()=>reg.update().catch(()=>{});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk()});setInterval(chk,3600000);
+  }).catch(()=>{})})}
 </script>
 </body>
 </html>
