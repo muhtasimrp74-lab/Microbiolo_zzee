@@ -64,12 +64,17 @@ Left as printed (debatable, not clearly wrong): "C3 deficiency is associated wit
 
 | Part | Questions | Answer pending |
 |---|---:|---:|
-| Part I — Virology | 138 | 28 |
-| Part II — Mycology | 74 | 5 |
-| Part III — Parasitology | 190 | 34 |
-| Part IV — Clinical Microbiology | 63 | 15 |
-| Part V — General Bacteriology | 134 | 134 |
+| Part I — Virology | 138 | 0 |
+| Part II — Mycology | 74 | 0 |
+| Part III — Parasitology | 190 | 0 |
+| Part IV — Clinical Microbiology | 63 | 0 |
+| Part V — General Bacteriology | 134 | 0 |
 | Part VI — Systemic Bacteriology | 160 | 160 |
 | Part VII — Immunology | 101 | 101 |
 
-Pending questions show an **Answer pending** badge; **Ask AI** gives an answer meanwhile. Next batches: write answers part by part, ★★★ items first, removing `pend` as each answer is added.
+Answers are written in `source/answers/*.md` as `## <question id>` sections and merged into the bank by the build. They follow standard textbook structure (Ananthanarayan & Paniker, Jawetz, Apurba Sastry; Chatterjee and Paniker for parasitology; Kuby and Abbas for immunology), in exam-answer form: headed sections, numbered points and comparison tables.
+
+**Done:** Parts I–IV (all second-term) and Part V General Bacteriology.
+**Next:** Part VI Systemic Bacteriology, then Part VII Immunology.
+
+Pending questions show an **Answer pending** badge, and **Ask AI** answers them meanwhile.
