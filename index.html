@@ -717,13 +717,19 @@ function card(q,ans,fz){
   ${fz?'':`<button class="gi" data-act="focusq" title="Focus on this question" aria-label="Focus on this question">${I('eye')}</button>`}${gi('fav','heart','Favourite','fav')}${gi('bm','bookmark','Bookmark','bm')}${gi('star','star','Star','star')}<button class="gl aib" data-askai title="Ask AI about this question" aria-label="Ask AI about this question">${I('aiSpark')}<span>Ask AI</span></button><button class="gl${nt?' on':''}" data-act="note">${I('note')}<span>${nt?'Edit note':'Add note'}</span></button>
   ${ans?'':`<a class="lk" href="#/answers/${q.part}?q=${q.id}">Answer ${I('arrow')}</a>`}</div>
   ${NOTE.has(q.id)||nt?`<textarea class="note" data-id="${q.id}" placeholder="Your note for Q${q.n}…">${esc(nt)}</textarea>`:''}</article>`}
+/* Topic sections: on the Questions tab they start CLOSED (the list is long and is meant to be
+   scanned by topic); on an Answers page they start open. S.col holds only what the user has
+   actually toggled, so an explicit choice always wins over the per-page default.
+   A live search is the exception: matches must be visible without opening every topic first. */
+const colDflt=()=>PAGE==='questions'&&!F.q?1:0;
+const isCol=id=>(id in S.col)?!!S.col[id]:!!colDflt();
 function list(ans){ // grouped by part → topic; topic headers collapse/expand (Topic Toggle)
   const srt=a=>F.sort==='freq'?[...a].sort((x,y)=>y.st-x.st):a; let h='';
   PARTS.filter(p=>!PART||p.id===PART).forEach(p=>{
     const ts=p.topics.map(t=>[t,srt(t.qs.filter(q=>pass(q,ans)))]).filter(x=>x[1].length); if(!ts.length)return;
     h+=`<section data-part="${p.id}">${PART?'':`<h2 class="ph">${I(META[p.id][0])} ${esc(p.name)}</h2>`}`+
     (ans&&p.intro&&!F.q&&!F.topic?`<details class="card md"><summary>Quick-recall map</summary>${md(p.intro.replace(/^## .*\n/,''))}</details>`:'')+
-    ts.map(([t,qs])=>`<div class="tp">${F.topic?'':`<button class="th${S.col[t.id]?' c':''}" data-act="tcol" data-id="${t.id}"><span class="tno">${t.no}</span><b>${esc(t.title)}</b><span class="cnt">${qs.length} Q<span data-pt="t:${t.id}" data-sep=" · "></span></span><i class="bar"><u data-p="t:${t.id}"></u></i>${I('chev')}</button>`}${S.col[t.id]&&!F.topic?'':`<div class="tb">${qs.map(q=>card(q,ans)).join('')}</div>`}</div>`).join('')+
+    ts.map(([t,qs])=>`<div class="tp">${F.topic?'':`<button class="th${isCol(t.id)?' c':''}" data-act="tcol" data-id="${t.id}"><span class="tno">${t.no}</span><b>${esc(t.title)}</b><span class="cnt">${qs.length} Q<span data-pt="t:${t.id}" data-sep=" · "></span></span><i class="bar"><u data-p="t:${t.id}"></u></i>${I('chev')}</button>`}${isCol(t.id)&&!F.topic?'':`<div class="tb">${qs.map(q=>card(q,ans)).join('')}</div>`}</div>`).join('')+
     (ans&&p.notes&&!F.q&&!F.topic?`<details class="card md"><summary>Sources &amp; notes</summary>${md(p.notes)}</details>`:'')+`</section>`});
   if(!h)return '<p class="empty">No questions match the current filters.</p>';
   if(F.topic){ // previous / next topic navigation
@@ -798,7 +804,7 @@ function head(ans){
   return `${tabs}${tsel(ans)}<div class="ph3"><div><span class="eyebrow">${T?`Section ${T.no} · ${esc(short(PARTS.find(p=>p.id===T.part)))}`:P0?esc(P0.name.match(/^Part \w+/)[0]):'Question index'}</span>
   <h1>${T?esc(T.title):P0?esc(short(P0)):'All questions'}</h1>
   <nav class="crumb"><a href="#/home" data-go>Home</a> / <a href="#/${ans?'answers/'+PART:'questions'}" data-go>${ans?esc(short(P0)):'Questions'}</a>${T?` / ${T.no}`:''} &nbsp;·&nbsp; ${n} question${n==1?'':'s'}</nav></div>
-  <div class="pt"><button class="ab fbtn" data-act="filt" aria-expanded="false">${I('filter')} <span>Filters</span>${fcount()?`<b>${fcount()}</b>`:''}</button><button class="ab" data-act="colall">${I('layers')} <span>${PARTS.flatMap(p=>p.topics).some(t=>S.col[t.id])?'Expand topics':'Collapse topics'}</span></button>${ans?`<span class="expw">${expBtns()}</span>`:''}</div></div>`}
+  <div class="pt"><button class="ab fbtn" data-act="filt" aria-expanded="false">${I('filter')} <span>Filters</span>${fcount()?`<b>${fcount()}</b>`:''}</button><button class="ab" data-act="colall">${I('layers')} <span>${PARTS.flatMap(p=>p.topics).some(t=>isCol(t.id))?'Expand topics':'Collapse topics'}</span></button>${ans?`<span class="expw">${expBtns()}</span>`:''}</div></div>`}
 
 /* ===== G2. MCQ PAGE ===== */
 let MF={q:'',part:'',topic:'',paper:'',kind:'',show:'all'}, MODE='read', MOPEN=new Set(), MPICK={};
@@ -929,8 +935,8 @@ document.addEventListener('click',e=>{
   if(act==='fexit')return setFocus(0);
   if(act==='topic'){F=newF();F.topic=a.dataset.id;
     if(location.hash==='#/questions')render(); else location.hash='#/questions'; return}
-  if(act==='tcol'){S.col[a.dataset.id]=S.col[a.dataset.id]?0:1;save();return paint()}
-  if(act==='colall'){const open=PARTS.flatMap(p=>p.topics).some(t=>S.col[t.id]);PARTS.forEach(p=>(!PART||p.id===PART)&&p.topics.forEach(t=>S.col[t.id]=open?0:1));save();return paint()}
+  if(act==='tcol'){S.col[a.dataset.id]=isCol(a.dataset.id)?0:1;save();return paint()}
+  if(act==='colall'){const open=PARTS.flatMap(p=>p.topics).some(t=>isCol(t.id));PARTS.forEach(p=>(!PART||p.id===PART)&&p.topics.forEach(t=>S.col[t.id]=open?0:1));save();return paint()}
   if(act==='expall'){const s=expState();s.rest.length?s.rest.slice(0,EXPN).forEach(q=>OPEN.add(q.id)):s.vis.forEach(q=>OPEN.delete(q.id));return paint()}
   if(act==='colans'){expState().vis.forEach(q=>OPEN.delete(q.id));return paint()}
   if(act==='filt')return setFilt(!filtOpen());
@@ -977,7 +983,7 @@ function importBackup(){
     if(!confirm('Import this backup?\n\n• '+n('done')+' studied, '+n('fav')+' favourites, '+n('bm')+' bookmarks, '+n('star')+' starred, '+n('note')+' notes'+(ink?'\n• '+ink.ok+' handwriting strokes':'')+(ch?'\n• '+ch.ok+' AI chats':'')+'\n\nIt is merged with what is on this device; imported items win on conflicts.'+(skipped?'\n\n'+skipped+' invalid item'+(skipped==1?'':'s')+' in the file will be skipped.':'')))return;
     ['done','fav','bm','star','note','col'].forEach(k=>Object.assign(S[k],st[k]));
     ['focus','fs','theme','last','fhide'].forEach(k=>{if(k in src&&(k==='last'?(typeof src[k]==='number'||typeof src[k]==='string'):typeof src[k]===typeof D[k]))S[k]=st[k]});
-    save();if(ink&&ink.ok)MBINK.merge(ink.ink);if(ch&&ch.ok)MBAI.importChats(ch.chats);
+    save();if(ink&&ink.ok)MBINK.mergeAsync(ink.ink);if(ch&&ch.ok)MBAI.importChats(ch.chats);
     applyPrefs();$('#modal').classList.remove('on');render();toast('Backup imported.')});
   f.click()}
 $('#bSet').onclick=()=>{const pc=v=>(v-85)/45*100;$('#mbox').innerHTML=`<h3 id="mttl">Settings</h3>
@@ -1057,7 +1063,10 @@ const uiSave=()=>{try{localStorage.setItem('mbink-ui',JSON.stringify(U))}catch(e
 /* ---- persistence: IndexedDB per question, localStorage fallback, flushed on hide ---- */
 const dbp=new Promise(r=>{try{const q=indexedDB.open('mbank-ink',1);q.onupgradeneeded=()=>q.result.createObjectStore('s');q.onsuccess=()=>{db=q.result;r()};q.onerror=q.onblocked=()=>r()}catch(e){r()}});
 async function load(){await dbp;if(!db){try{return JSON.parse(localStorage.getItem('mbink')||'{}')}catch(e){return{}}}return new Promise(res=>{const o={};try{const c=db.transaction('s').objectStore('s').openCursor();c.onsuccess=()=>{const x=c.result;if(x){o[x.key]=x.value;x.continue()}else res(o)};c.onerror=()=>res(o)}catch(e){res(o)}})}
-function flush(){clearTimeout(st);if(!DIRTY.size)return;if(db){try{const s=db.transaction('s','readwrite').objectStore('s');DIRTY.forEach(k=>INK[k]&&INK[k].length?s.put(INK[k],k):s.delete(k))}catch(e){}}else try{localStorage.setItem('mbink',JSON.stringify(INK))}catch(e){}DIRTY.clear()}
+let warned=0;const warn=()=>{if(!warned){warned=1;alert('Your handwriting could not be saved in this browser (storage full or blocked). Use the pen menu \u2192 Export annotations to keep a copy.')}};
+function flush(){clearTimeout(st);if(!DIRTY.size)return Promise.resolve();const keys=[...DIRTY];DIRTY.clear();
+  if(db)return new Promise(res=>{try{const tx=db.transaction('s','readwrite'),s=tx.objectStore('s');keys.forEach(k=>INK[k]&&INK[k].length?s.put(INK[k],k):s.delete(k));tx.oncomplete=()=>res();tx.onerror=tx.onabort=()=>{warn();res()}}catch(e){warn();res()}});
+  try{localStorage.setItem('mbink',JSON.stringify(INK))}catch(e){warn()}return Promise.resolve()}
 const persist=q=>{DIRTY.add(String(q));clearTimeout(st);st=setTimeout(flush,350)};
 addEventListener('pagehide',flush);document.addEventListener('visibilitychange',()=>document.hidden&&flush());
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
@@ -1096,15 +1105,27 @@ function frags(a){const b=box(a),items=[],map=new Map(),blocks=new Map(),w=docum
   while(n=w.nextNode()){const p=n.parentElement;if(!p||p.closest('canvas,textarea,script,style'))continue;
     let o=p.closest(BLK);if(!o||o===a||!a.contains(o))o=a;
     let bi=blocks.get(o);if(!bi){bi={k:o===a?'':blkKey(a,o),off:0};blocks.set(o,bi)}
-    const t=n.data;for(let i=0;i<t.length;i++){const ch=t.charCodeAt(i);if(ch<=32||ch===160)continue;rg.setStart(n,i);rg.setEnd(n,i+1);const r=rg.getClientRects()[0];if(!r||(!r.width&&!r.height))continue;
-      const it={k:bi.k,o:bi.off+i,l:r.left-b.left,t:r.top-b.top,r:r.right-b.left,b:r.bottom-b.top};it.cx=(it.l+it.r)/2;it.cy=(it.t+it.b)/2;items.push(it);map.set(it.k+'|'+it.o,it)}
+    const t=n.data;for(let i=0;i<t.length;i++){const ch=t.charCodeAt(i);if(ch<=32||ch===160)continue;bi.t=1;rg.setStart(n,i);rg.setEnd(n,i+1);const r=rg.getClientRects()[0];if(!r||(!r.width&&!r.height))continue;
+      bi.v=1;const it={k:bi.k,o:bi.off+i,l:r.left-b.left,t:r.top-b.top,r:r.right-b.left,b:r.bottom-b.top};it.cx=(it.l+it.r)/2;it.cy=(it.t+it.b)/2;items.push(it);map.set(it.k+'|'+it.o,it)}
     bi.off+=t.length}
-  return{items,map}}
+  /* vis / hid: every path prefix of a block that has visible text / only hidden text (e.g. a collapsed answer). Used by lookFb. */
+  const vis=new Set(),hid=new Set();blocks.forEach(bi=>{if(!bi.t)return;const S=bi.v?vis:hid,p=bi.k?bi.k.split('>'):[];S.add('');for(let i=1;i<=p.length;i++)S.add(p.slice(0,i).join('>'))});
+  return{items,map,vis,hid}}
 function nearest(F,x,y){let best=null,bd=1e18;for(const it of F.items){const dx=x<it.l?it.l-x:x>it.r?x-it.r:0,dy=y<it.t?it.t-y:y>it.b?y-it.b:0,d=dx*dx+dy*dy+((x-it.cx)**2+(y-it.cy)**2)*1e-4;if(d<bd){bd=d;best=it}}return best}
 const sigOf=(a,u)=>a.clientWidth+'x'+a.clientHeight+'@'+u+'#'+(a._mv|0);
 function geo(a,q){const u=unitPx(),s=sigOf(a,u);let G=GEO[q];if(G&&G.a===a&&G.sig===s)return G;return GEO[q]={a,sig:s,u,W:a.clientWidth,H:a.clientHeight,_F:null,wm:new WeakMap()}}
 const getF=G=>G._F||(G._F=frags(G.a)),inv=a=>{a._mv=(a._mv|0)+1};
-const look=(G,k,o)=>{const m=getF(G).map;for(const d of[0,-1,1,-2,2]){const it=m.get(k+'|'+(o+d));if(it)return it}return null};
+const look=(G,k,o)=>{const F=getF(G),m=F.map;for(const d of[0,-1,1,-2,2]){const it=m.get(k+'|'+(o+d));if(it)return it}return lookFb(F,k,o)};
+/* A mark whose exact character is gone (the question text was edited, or the answer now renders shorter) falls back to the nearest
+   surviving character OF THE SAME BLOCK. Note the deliberate difference from the Community Medicine build, which also climbs to an
+   enclosing block: there a closed answer is merely hidden by CSS, so its blocks are still in the DOM and land in `hid`. Here a closed
+   answer is removed from the DOM entirely, so a missing block is indistinguishable from a hidden one and climbing would silently pile an
+   answer's handwriting onto the question header. Same-block only: re-anchor where we can prove the context, otherwise draw nothing. */
+function lookFb(F,k,o){if(!F.bmax){F.bmax=new Map();for(const key of F.map.keys()){const i=key.lastIndexOf('|'),b=key.slice(0,i),n=+key.slice(i+1);if(!(F.bmax.get(b)>=n))F.bmax.set(b,n)}}
+  const b=String(k||'');
+  if(F.hid.has(b)&&!F.vis.has(b))return null; /* block is present but hidden right now: draw nothing */
+  if(F.bmax.has(b)){for(let x=Math.min(o,F.bmax.get(b));x>=0;x--){const it=F.map.get(b+'|'+x);if(it)return it}}
+  return null}
 /* resolve a stroke to card-space runs. A run breaks where the text wrapped differently and the neighbouring anchors moved apart. */
 function runsOf(G,s){let r=G.wm.get(s);if(r)return r;r=[];
   if(s.v===2){const p=s.p,u=G.u;let run=null,pv=null;for(let i=0;i+5<p.length;i+=6){const it=look(G,s.k[p[i]],p[i+1]);if(!it){run=null;pv=null;continue}
@@ -1278,11 +1299,13 @@ document.addEventListener('click',e=>{if(MORE&&!e.target.closest('#inkmenu,[data
 try{matchMedia('(prefers-color-scheme:dark)').addEventListener('change',rp)}catch(e){}new MutationObserver(rp).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']})}
 tb();sync();load().then(o=>{Object.keys(o).forEach(k=>{if(!INK[k])INK[k]=o[k]});sync()});
 /* minimal hooks for the app-wide backup (audit 1.7): read all ink / merge validated ink (union by stroke id) */
+function merge(d){let n=0;Object.keys(d||{}).forEach(k=>{if(k==='__proto__'||!Array.isArray(d[k]))return;const have=INK[k]||[],ids=new Set(have.map(s=>s.id)),add=d[k].filter(s=>okStroke(s)&&!ids.has(s.id));
+  if(add.length){INK[k]=have.concat(add);n+=add.length;persist(k);redraw(k)}});sync();return n}
 window.MBINK={
   read(){flush();const o={};Object.keys(INK).forEach(k=>{if(INK[k]&&INK[k].length)o[k]=INK[k]});return JSON.parse(JSON.stringify(o))},
   clean:cleanInk,
-  merge(d){let n=0;Object.keys(d||{}).forEach(k=>{const have=INK[k]||[],ids=new Set(have.map(s=>s.id)),add=d[k].filter(s=>!ids.has(s.id));
-    if(add.length){INK[k]=have.concat(add);n+=add.length;persist(k);redraw(k)}});sync();return n}};
+  merge,mergeAsync(d){const n=merge(d);return flush().then(()=>n)},
+  count(){let n=0;Object.keys(INK).forEach(k=>n+=(INK[k]||[]).length);return n}};
 })();
 </script>
 <script>
