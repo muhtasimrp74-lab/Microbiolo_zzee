@@ -69,12 +69,11 @@ Left as printed (debatable, not clearly wrong): "C3 deficiency is associated wit
 | Part III — Parasitology | 190 | 0 |
 | Part IV — Clinical Microbiology | 63 | 0 |
 | Part V — General Bacteriology | 134 | 0 |
-| Part VI — Systemic Bacteriology | 160 | 160 |
-| Part VII — Immunology | 101 | 101 |
+| Part VI — Systemic Bacteriology | 160 | 0 |
+| Part VII — Immunology | 101 | 0 |
 
-Answers are written in `source/answers/*.md` as `## <question id>` sections and merged into the bank by the build. They follow standard textbook structure (Ananthanarayan & Paniker, Jawetz, Apurba Sastry; Chatterjee and Paniker for parasitology; Kuby and Abbas for immunology), in exam-answer form: headed sections, numbered points and comparison tables.
+Answers are written in `source/answers/*.md` as `## <question id>` sections and merged into the bank by `tools/merge_answers.py`. They follow standard textbook structure (Ananthanarayan & Paniker, Jawetz, Apurba Sastry; Chatterjee and Paniker for parasitology; Kuby and Abbas for immunology), in exam-answer form: headed sections, numbered points and comparison tables.
 
-**Done:** Parts I–IV (all second-term) and Part V General Bacteriology.
-**Next:** Part VI Systemic Bacteriology, then Part VII Immunology.
+**Done:** all seven parts — every question in the bank now carries a model answer.
 
-Pending questions show an **Answer pending** badge, and **Ask AI** answers them meanwhile.
+To merge after editing an answer file: `python3 tools/merge_answers.py` (add `--check` for a dry run), then bump `VERSION` in `sw.js` so returning visitors pick up the new shell.

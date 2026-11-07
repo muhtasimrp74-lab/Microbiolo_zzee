@@ -3,7 +3,7 @@
    Works from the site root (Netlify) and from a project subpath (GitHub Pages: /Microbiolo_zzee/).
    DEPLOYING: bump VERSION on every deploy that changes the shell. Returning visitors then pick up the new
    worker on their next visit/tab focus (index.html registers with updateViaCache:'none'); pages load network-first. */
-const VERSION = 'mb-v5';
+const VERSION = 'mb-v6';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'vendor/marked.min.js'];
 const CACHEABLE_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
